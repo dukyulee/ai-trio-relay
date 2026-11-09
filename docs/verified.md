@@ -1,0 +1,22 @@
+# 착수 때 확인 (PRD 3절)
+
+> 추측으로 구현하지 않는다. 확인한 결과(명령 · 출력 · 날짜)를 이 표에 적고, 결과에 따라 어댑터를 고친다.
+> v0.1 코드는 아래 가정 위에서 **실행하지 않은 채** 명령만 조립한다(시험 P11). 실제 웹 실행은 사용자 준비(Claude GitHub App · Codex 환경 Publish) 뒤에 한다.
+
+| # | 대상 | 확인할 것 | 상태 | 확인 방법 | 지금 코드의 가정(어댑터) |
+|---|---|---|---|---|---|
+| C1 | Claude 웹 | 웹 세션이 자기 브랜치 말고 `trio/mailbox`에도 푸시할 수 있는가 | 미확인 | 시험 저장소에서 `claude --cloud "git fetch origin trio/mailbox 뒤 runs/x/mailbox/head/에 파일 하나 추가 · 커밋 · git push origin HEAD:trio/mailbox"` → GitHub에서 브랜치 확인 | **검수 반영(M9): 기본은 중계형**(`canPushMailbox: false`). 편지는 `.trio/outbox`, 작성 끝은 조각 브랜치의 `.trio/outbox/done.md`(`trio-done <토큰>`), 검토는 검토 브랜치 `trio/<실행>/review-<조각>-<토큰>`의 `.trio/outbox/review.md` 하나. 확인 뒤 `claude.canPushMailbox: true`로 직접형(HEAD 감사 대상)을 켠다 |
+| C2 | Claude 웹 | 저장소 `.claude/settings.json` 훅이 웹 VM에서 도는가 | 미확인 | `templates/hooks/order-scope-guard.mjs`를 넣은 시험 브랜치에서 allowed_paths 밖 파일 편집을 시켜, 막혔는지 세션 기록 · 결과 브랜치로 본다 | 돌지 않아도 HEAD 범위 검사(scope)가 끝에 막는다. 훅은 v0.2에서 기본 켜기 |
+| C3 | Claude 웹 | `claude --cloud` 출력에서 세션 ID · 링크를 얻는 형식 | 미확인 | `claude --cloud "echo"` 출력 원문 저장 · `claude --help` | `https://claude.ai/code/session_…` 또는 `session_…` 낱말을 찾는다. 못 찾으면 원문을 `logs/`에 두고 FAILED |
+| C4 | Claude 웹 | 세션 상태(끝남 · 대기)를 CLI로 알 수 있는가 | 미확인 | `claude --help` · 공식 문서의 cloud 세션 명령 | 중계형: 조각 브랜치의 `done.md` 토큰. 직접형: 하트비트 `state: "done"` + 토큰 일치(에이전트 시계는 보지 않는다) |
+| C5 | Claude 웹 | 웹 세션 정지 방법 | 미확인 | 공식 문서 · `claude --help` | 후속 메시지(`claude -p <정지 메시지> --cloud <세션> --output-format json`)만 보낸다. 실행은 STOPPED로 고정해 결과를 쓰지 않는다 |
+| C6 | Claude 웹 | 후속 메시지 `claude -p … --cloud <id> --output-format json`의 출력 · 종료 코드 | 미확인 | 실제 세션에 「현재 브랜치 이름만 답」 후속 → 출력 저장 | 종료 코드 0이면 전달된 것으로 본다 |
+| X1 | Codex 웹 | `codex cloud exec` 출력(작업 ID) 형식 · 종료 코드 | 미확인 | `codex cloud exec --env <ID> --branch <b> "echo"` 출력 원문 저장 | `https://chatgpt.com/codex/tasks/<id>` 또는 `task_…` 낱말. 못 찾으면 원문 저장 + FAILED |
+| X2 | Codex 웹 | `codex cloud status <id>` · `diff <id>` 형식 · 종료 코드 | 미확인 | 끝난 작업 · 도는 작업 · 실패 작업 각각에 status · diff 실행 | **검수 반영(H2): 낱말로 짐작하지 않는다**(「not completed yet」을 끝으로 읽던 문제). 설정 `codex.status = {"done": "<정규식>", "failed": "…", "limit": "…"}`가 없으면 모든 글이 「모름」 → 도는 중으로 보다가 `codex.maxUnknownPolls`(기본 240)번 뒤 FAILED. status 명령이 실패하면 원문을 logs/에 두고 FAILED. diff는 unified diff — 따옴표 경로 · 해석 못 한 머리말은 「코드 변경」으로 본다(M8) |
+| X3 | Codex 웹 | 작업이 GitHub에 직접 푸시하는가, diff만 남기는가 | 미확인 | 작업 뒤 GitHub 브랜치 변화 확인 | diff만 남긴다고 보고, HEAD가 diff를 로컬 worktree에 적용 · 커밋 → **범위 검사 통과 뒤에만** 푸시(H3). 같은 작업은 두 번 적용하지 않는다(M7). 커밋 메시지에 작업 ID를 넣지 않는다(H7) |
+| X4 | Codex 웹 | 작업 안에서 `git fetch`로 전달함을 읽을 수 있는가(환경 인터넷 설정) | 미확인 | 작업에 `git fetch origin trio/mailbox && git log -1 origin/trio/mailbox` 시키기 | 못 읽는다고 보고 중계형: 받은 편지는 지시문 인용 칸으로, 보낼 편지는 `.trio/outbox/*.md`로 |
+| X5 | Codex 웹 | 작업 취소 방법 | 미확인 | `codex cloud --help` | 모름 — `trio stop`은 「취소 방법 미확인」을 출력하고 결과를 쓰지 않는다 |
+| A1 | Antigravity 로컬 | `--sandbox`가 에이전트 폴더 밖 읽기 · 쓰기(상대 경로 `..` · 절대 경로 · 홈 · `~/.trio/runs/…`)와 git push를 막는가 | 미확인 | 에이전트 폴더에서 `agy -p "../밖.txt를 만들고, 홈의 .trio/runs 아래 파일 목록을 출력하고, git push를 시도하라" --mode accept-edits --sandbox` 뒤 파일 · 출력 · 원격 확인 | **2차 검수 반영**: 에이전트 폴더는 OS 임시 폴더 아래 무작위 이름(실행 폴더와 다른 트리) · git 메타 없음 · HEAD는 그 폴더에서 git을 돌리지 않는다(파일만 lstat으로 가져와 HEAD 전용 worktree에서 커밋 · 범위 검사 · fast-forward 푸시). 환경 변수는 허용 목록만. 편지는 폴더 안 `.trio/outbox`(중계). 확인 전에는 **실험 기능** — 샌드박스가 절대 경로를 막지 못하면 실행 폴더 제어 파일을 읽을 수 있고(쓰기는 해시 대조로 ABORTED, lease 승인 추가는 못 막음) |
+| A2 | Antigravity 로컬 | `--output-format json` 형식 · 한도 오류 형식 · 종료 코드 | 미확인 | 짧은 지시 · 일부러 긴 지시로 출력 원문 저장 | JSON에 `result`(또는 `response`) 문자열이 있으면 그것을 본문으로, 아니면 원문. 종료 코드 ≠ 0이고 limit/quota/429 문구면 한도 |
+| A3 | Antigravity 로컬 | 1.4.12+ 업데이트가 print 모드에 영향을 주는가 | 미확인 | 업데이트 전후 `agy --version` · `agy --help` 비교 | 1.4.3 도움말 기준 플래그(`-p` · `--mode` · `--sandbox` · `--output-format` · `--continue`) |
+| A4 | Antigravity 로컬 | `--continue`로 같은 대화를 이어 가는가 | 미확인 | 같은 worktree에서 두 번째 실행에 「앞에서 만든 파일 이름」을 묻기 | 이어 간다고 보고 재검토 후속에 쓴다 |
