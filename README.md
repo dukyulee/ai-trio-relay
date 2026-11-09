@@ -79,6 +79,12 @@ trio stop <실행>                           # 전부 정지(STOPPED · 자동 �
 - HEAD가 전달함에 푸시한 직후 그 커밋을 기록하기 전에 죽으면, 다음 감사에서 그 커밋은 「누가 했는지 모르는 커밋」으로 걸려 실행이 멈춘다(fail-closed). 사람이 전달함을 확인하고 새 실행 이름으로 다시 한다.
 - 범위 훅(`templates/hooks/order-scope-guard.mjs`)은 Claude의 편집 도구(Edit · Write 등)만 본다. Bash로 쓴 파일은 편집 순간에 막지 못하고, 작업 뒤 범위 검사(fail-closed)에서만 잡힌다.
 - `.trio/orders/*.json`(조각 범위 · 임대 기록. 임대 사유에 편지 본문 앞부분이 들어간다)은 integration을 거쳐 main PR에도 실린다. 공개 저장소에서는 이 내용도 공개된다.
+- **agy 가져오기의 알려진 문제(v0.2에서 고친다 — 그 전까지 agy는 실험):**
+  - 개수 · 크기 상한이 gitignore 대상(`node_modules` · `.venv` · `dist`)까지 센다. 에이전트가 폴더에서 `npm install`을 하면 정상 작업도 FAIL할 수 있다.
+  - 파일 종류 확인(lstat)과 복사 사이에 틈이 있고, 하드 링크를 가려내지 않는다. agy가 남긴 자식 프로세스가 그 틈에 파일을 링크로 바꾸면 폴더 밖 내용을 가져올 수 있다.
+  - Windows 파일 이름 별칭(대소문자 충돌 · 이름은 달라도 같은 파일로 열리는 경우)은 확인하지 않았다. 예약 이름(`CON` · `NUL`) · 긴 경로는 그 조각이 FAILED가 된다.
+- 잠금 파일(`~/.trio/runs/…/*.lock`)은 주인 프로세스가 살아 있으면 오래돼도 빼앗지 않는다. 주인이 멈춘 채 살아 있으면 사람이 그 프로세스를 끝내거나 잠금 파일을 지운다.
+- 에이전트 · verify 환경은 허용 목록이다. Node · npm 밖 도구(Java · Go · Python 가상 환경 · 사내 CA)에 필요한 변수는 아직 넘기지 않는다.
 
 ## 영어 요약 (English summary)
 A Claude Code skill that runs **Claude Code on the web, Codex cloud, and Antigravity in parallel**.

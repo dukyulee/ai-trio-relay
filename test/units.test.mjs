@@ -293,8 +293,9 @@ test('지시문: 편지 · 검토 지적 · 결정은 인용 칸에만, 본문�
   assert.ok(!p.includes('<mail trust="head">'));
   assert.equal((p.match(/<decisions /g) || []).length, 1, '결정은 인용 칸 하나에만');
   assert.equal((p.match(/<\/decisions>/g) || []).length, 1, '결정 글이 칸을 닫지 못한다');
-  // H6: HEAD가 대신 푸시하는 에이전트는 「커밋만」
-  assert.match(p, /커밋만 하고 푸시하지 않는다/);
+  // H6 · 3차 낮음-5: HEAD가 대신 커밋 · 푸시하는 에이전트는 「파일만」(작업 폴더에 git이 없을 수 있다)
+  assert.match(p, /파일만 고치고 커밋 · 푸시하지 않는다/);
+  assert.doesNotMatch(p, /커밋만 하고/);
   assert.doesNotMatch(p, /커밋 · 푸시한다\. main/);
   const d = buildAuthorPrompt({ order: { ...order, agent: 'claude' }, mode: 'direct', token: 'tk9' });
   assert.match(d, /git fetch origin trio\/mailbox/);
