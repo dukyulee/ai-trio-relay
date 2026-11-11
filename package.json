@@ -1,0 +1,23 @@
+{
+  "name": "ai-trio-relay",
+  "version": "0.1.0",
+  "description": "Claude Code 웹 · Codex 웹 · Antigravity를 병렬로 일하게 하고 GitHub 전달함 브랜치로 서로 묻고 답하게 하는 Claude Code 스킬",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "trio": "bin/trio.mjs"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "skills/",
+    "templates/",
+    ".claude-plugin/"
+  ]
+}

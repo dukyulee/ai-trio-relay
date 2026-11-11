@@ -1,0 +1,19 @@
+{
+  "name": "ai-trio-relay",
+  "owner": {
+    "name": "dukyulee"
+  },
+  "metadata": {
+    "description": "Claude Code 웹 · Codex 웹 · Antigravity를 병렬로 일하게 하고 GitHub 전달함 브랜치로 서로 묻고 답하게 하는 오케스트레이터 스킬",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "trio",
+      "description": "목표를 겹치지 않는 조각으로 나눠 세 에이전트를 동시에 돌리고, 다른 회사 모델이 교차 검토한 조각만 하나씩 합친다",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/trio"]
+    }
+  ]
+}
