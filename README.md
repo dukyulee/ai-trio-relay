@@ -74,7 +74,7 @@ trio stop <실행>                           # 전부 정지(STOPPED · 자동 �
 - 전달함 감사에서 누가 했는지 모르는 위반(자기 편지 없이 남의 것을 고친 커밋 · 병합 · 루트 커밋 · 역사 고침 · 감사 실패 · 커밋 500개 초과)이 나오면 실행 전체가 MAILBOX_TAMPERED로 멈추고 모든 조각이 사람에게 간다. 기본 설정(직접형 0명)에서는 HEAD 밖의 모든 커밋이 이렇게 된다.
 - 중계형 에이전트(Codex · agy · 기본 Claude)의 임대는 작업이 끝날 때 HEAD가 바로 판단할 수 있어야 한다. 판단이 늦으면 그 조각은 빌린 파일 없이 범위 검사로 간다.
 - `trio lease`는 판단만 기록한다(돌고 있는 `trio run`이 반영). 실행 루프는 승인 기록이 「뒤에만 붙는지」만 본다 — 실행 폴더(`~/.trio/runs/…`)에 쓸 수 있는 프로세스는 자기 임대를 스스로 승인하는 줄을 붙일 수 있다. 다른 제어 파일(계획 · ORDER · 상태 · 세션 표 · 감사 기록 · 결정 사본 · 중계 기록)은 HEAD가 마지막으로 쓴 해시와 다르면 ABORTED로 멈추지만, 읽기(세션 ID 등)는 막지 못한다.
-- **A1 확인 전 Antigravity(로컬 agy)는 실험 기능이다.** 에이전트 폴더를 실행 폴더와 다른 트리에 두지만, `--sandbox`가 절대 경로 · 상대 경로로 실행 폴더나 홈에 닿는 것을 막는지는 모른다. 에이전트의 git push 차단(자격 증명 끄기 · 허용 목록 환경)도 최종적으로는 샌드박스에 달렸다.
+- **Antigravity(로컬 agy)는 실험 기능이고 기본으로 꺼져 있다**(확인 A1 · 2026-11-11 · agy 1.5.3). `--sandbox`는 터미널만 막는다(헤드리스에서 명령은 자동 거부 — git push도). **파일 도구는 작업 폴더 밖 절대 경로를 그대로 읽고 쓴다.** 그래서 켜지 않으면 agy 조각이 든 계획은 `trio plan`에서 거부되고, 검토 돌려 막기도 agy를 건너뛴다(Codex 조각은 Claude가 검토). 켜는 법은 아래 「Antigravity 켜기」.
 - `trio run`이 도는 동안 `trio mail send` · `trio relay` · `trio merge` · `trio review --file`은 거절된다(실행 루프가 쓰는 기록을 다른 프로세스가 바꾸지 않게). 임대 판단은 `trio lease`, 정지는 `trio stop`.
 - HEAD가 전달함에 푸시한 직후 그 커밋을 기록하기 전에 죽으면, 다음 감사에서 그 커밋은 「누가 했는지 모르는 커밋」으로 걸려 실행이 멈춘다(fail-closed). 사람이 전달함을 확인하고 새 실행 이름으로 다시 한다.
 - 범위 훅(`templates/hooks/order-scope-guard.mjs`)은 Claude의 편집 도구(Edit · Write 등)만 본다. Bash로 쓴 파일은 편집 순간에 막지 못하고, 작업 뒤 범위 검사(fail-closed)에서만 잡힌다.
@@ -85,6 +85,16 @@ trio stop <실행>                           # 전부 정지(STOPPED · 자동 �
   - Windows 파일 이름 별칭(대소문자 충돌 · 이름은 달라도 같은 파일로 열리는 경우)은 확인하지 않았다. 예약 이름(`CON` · `NUL`) · 긴 경로는 그 조각이 FAILED가 된다.
 - 잠금 파일(`~/.trio/runs/…/*.lock`)은 주인 프로세스가 살아 있으면 오래돼도 빼앗지 않는다. 주인이 멈춘 채 살아 있으면 사람이 그 프로세스를 끝내거나 잠금 파일을 지운다.
 - 에이전트 · verify 환경은 허용 목록이다. Node · npm 밖 도구(Java · Go · Python 가상 환경 · 사내 CA)에 필요한 변수는 아직 넘기지 않는다.
+
+## Antigravity 켜기 (실험)
+agy의 파일 경계는 `--sandbox`가 아니라 agy 권한 규칙(`~/.gemini/antigravity-cli/settings.json`의 `permissions` · Deny > Ask > Allow)이 정한다. 켜기 전에 셋을 한다.
+
+1. **민감 경로를 deny 규칙으로 막는다.** `read_file`을 막으면 같은 경로의 `write_file`도 막힌다(공식 문서). 적어도 아래를 넣는다. Windows는 agy가 경로를 `/`로 바꾸고 드라이브 문자를 뺀 뒤 비교한다.
+   - 실행 기록: `~/.trio`
+   - 자격 증명: `~/.ssh` · `~/.config/gh` · `~/.codex` · `~/.claude` · `~/.gemini` · `~/.aws` · `~/.npmrc` · `~/.gitconfig`
+   - 다른 저장소가 있는 작업 폴더
+2. **막혔는지 직접 확인한다.** `docs/verified.md` A1의 방법대로, 작업 폴더 밖 카나리 파일 읽기 · 쓰기를 agy에게 시켜 본다. 실패해야 한다. 이 확인은 아직 하지 않았다(권한 규칙 적용 결과는 미확인).
+3. `.trio/config.json`에 `"antigravity": { "experimental": true }`를 넣는다(정확히 `true`일 때만 켜진다).
 
 ## 영어 요약 (English summary)
 A Claude Code skill that runs **Claude Code on the web, Codex cloud, and Antigravity in parallel**.

@@ -105,6 +105,12 @@ test('P6 검토자 돌려 막기: 늘 다른 회사', () => {
   assert.equal(pickReviewer('codex'), 'antigravity');
   assert.equal(pickReviewer('antigravity'), 'claude');
   assert.throws(() => pickReviewer('gemini'));
+  // A1: agy가 꺼져 있으면 돌려 막기에서 건너뛰고 다음 「다른 회사」를 고른다
+  const noAgy = ['claude', 'codex'];
+  assert.equal(pickReviewer('codex', noAgy), 'claude');
+  assert.equal(pickReviewer('claude', noAgy), 'codex');
+  assert.throws(() => pickReviewer('claude', ['claude']), /다른 회사의 검토자가 없다/);
+  assert.throws(() => pickReviewer('codex', ['codex', 'antigravity'].filter((a) => a !== 'antigravity')), /다른 회사의 검토자가 없다/);
 });
 
 test('P6 검토 판정: 없음 · 깨짐 · 코드 섞임 · 형식 어긋남 · 토큰 어긋남은 FAIL(fail-closed)', () => {

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { git } from '../lib/gitops.mjs';
-import { checkReady, formatReady } from '../bin/trio.mjs';
+import { checkReady, formatReady, disabledAgyAdapter } from '../bin/trio.mjs';
 import { setupRepo, ROOT, calcPlan, writeFiles } from './helpers.mjs';
 
 const TRIO = path.join(ROOT, 'bin', 'trio.mjs');
@@ -23,14 +23,28 @@ function node(args, { cwd, input } = {}) {
 test('CLI: plan(검증 · 승인 대기) → 승인 전 run 거부 → approve → stop → 재run 거부', async () => {
   const env = await setupRepo();
   const planPath = path.join(env.root, '계획 파일.json');
+  // A1(2026-11-11): agy는 실험 · 기본 꺼짐 — 설정 없이 agy 조각이 든 계획은 거부한다
+  fs.writeFileSync(planPath, JSON.stringify(calcPlan('cli1')));
+  assert.ok(calcPlan('cli1').pieces.some((p) => p.agent === 'antigravity'), '시험 계획에 agy 조각이 있어야 이 단언이 의미 있다');
+  let r = await node([TRIO, 'plan', '--file', planPath], { cwd: env.work });
+  assert.equal(r.code, 2);
+  assert.match(r.stderr, /실험 기능이라 꺼져 있다/);
+  assert.equal(fs.existsSync(path.join(env.work, '.trio', 'config.json')), false);
+  fs.mkdirSync(path.join(env.work, '.trio'), { recursive: true });
+  fs.writeFileSync(path.join(env.work, '.trio', 'config.json'), JSON.stringify({ antigravity: { experimental: 'yes' } }));
+  r = await node([TRIO, 'plan', '--file', planPath], { cwd: env.work });
+  assert.equal(r.code, 2, '정확히 true일 때만 켜진다');
+  assert.match(r.stderr, /실험 기능이라 꺼져 있다/);
+  fs.writeFileSync(path.join(env.work, '.trio', 'config.json'), JSON.stringify({ antigravity: { experimental: true } }));
+
   const bad = calcPlan('cli1');
   bad.pieces[1].allowed_paths = ['src/add.js'];
   fs.writeFileSync(planPath, JSON.stringify(bad));
-  let r = await node([TRIO, 'plan', '--file', planPath], { cwd: env.work });
+  r = await node([TRIO, 'plan', '--file', planPath], { cwd: env.work });
   assert.equal(r.code, 2);
   assert.match(r.stderr, /겹친다/);
-
   fs.writeFileSync(planPath, JSON.stringify(calcPlan('cli1')));
+
   r = await node([TRIO, 'plan', '--file', planPath], { cwd: env.work });
   assert.equal(r.code, 0, r.stderr);
   assert.match(r.stdout, /승인 대기/);
@@ -135,4 +149,13 @@ test('범위 훅: trio 조각 브랜치에서 allowed_paths 밖 편집 · 보호
   // base · integration 브랜치는 조각이 아니다
   await git(env.work, ['checkout', '--quiet', '-b', 'trio/r1/integration']);
   assert.equal((await run(path.join(env.work, 'src/mul.js'))).code, 0);
+});
+
+test('A1: 꺼진 agy 자리는 시작 · 검토 · 폴링이 모두 실패한다(이미 승인된 계획도 fail-closed)', async () => {
+  const a = disabledAgyAdapter();
+  assert.equal(a.name, 'antigravity');
+  for (const fn of ['start', 'startReview', 'poll', 'followUp']) {
+    await assert.rejects(async () => a[fn]({}), /실험 기능이라 꺼져 있다/, fn);
+  }
+  await a.stop({});
 });

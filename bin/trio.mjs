@@ -11,7 +11,7 @@ import { preparePlan, approvePlan, runPlan, stopRun, makeHeadMailbox, recordLeas
 import { relayBranch, relayPatch } from '../lib/relay.mjs';
 import { createClaudeWebAdapter } from '../lib/adapters/claude-web.mjs';
 import { createCodexWebAdapter } from '../lib/adapters/codex-web.mjs';
-import { createAntigravityLocalAdapter } from '../lib/adapters/antigravity-local.mjs';
+import { createAntigravityLocalAdapter, agyEnabled, AGY_DISABLED_MESSAGE } from '../lib/adapters/antigravity-local.mjs';
 import { parseLeasePaths, ID_RE } from '../lib/orders.mjs';
 
 const HELP = `trio — 세 에이전트 병렬 실행 · 전달함 · 교차 검토
@@ -53,7 +53,7 @@ export async function checkReady({ exec = runCmd, cwd = process.cwd(), config = 
   const envOk = !!(config.codex && config.codex.envId);
   items.push({ name: 'Codex 웹', ok: codex.ok && envOk, fix: `${codex.ok ? '' : 'Codex CLI 0.167+ 설치 · 로그인. '}${envOk ? '' : 'chatgpt.com Codex에서 이 저장소의 클라우드 환경을 만들고 Publish → `trio init --codex-env <환경ID>`. '}https://developers.openai.com/codex/cloud` });
   const agy = await tryRun('agy', ['--version']);
-  items.push({ name: 'Antigravity(로컬 agy)', ok: agy.ok, fix: 'agy 1.4.x 설치 · 로그인(Google AI Pro 이상). https://antigravity.google' });
+  items.push({ name: `Antigravity(로컬 agy)${agyEnabled(config) ? ' — 실험 켜짐' : ' — 실험 · 꺼짐'}`, ok: agy.ok, fix: 'agy 1.5.x 설치 · 로그인(Google AI Pro 이상). https://antigravity.google' });
   const gh = await tryRun('gh', ['auth', 'status']);
   const remote = await tryRun('git', ['remote', 'get-url', 'origin']);
   const isGithub = remote.ok && /github\.com[:/]/i.test(remote.out);
@@ -76,11 +76,17 @@ export function formatReady({ items, visibility }) {
   return lines.join('\n');
 }
 
+// 꺼진 agy 자리: 시작하면 바로 실패한다(fail-closed). 계획 단계에서 이미 막지만, 그 전에 승인된 계획도 막는다.
+export function disabledAgyAdapter() {
+  const fail = () => { throw new Error(AGY_DISABLED_MESSAGE); };
+  return { name: 'antigravity', capability: { canPushMailbox: false, disabled: true }, start: fail, startReview: fail, poll: fail, followUp: fail, stop: async () => {} };
+}
+
 function realAdapters({ repoDir, runDir, config, mailbox }) {
   return {
     claude: createClaudeWebAdapter({ repoDir, runDir, config, mailbox }),
     codex: createCodexWebAdapter({ repoDir, runDir, config }),
-    antigravity: createAntigravityLocalAdapter({ repoDir, runDir, config }),
+    antigravity: agyEnabled(config) ? createAntigravityLocalAdapter({ repoDir, runDir, config }) : disabledAgyAdapter(),
   };
 }
 
@@ -111,6 +117,7 @@ async function main(argv) {
     if (!run) die('실행 이름이 없다(--run 또는 plan.run)');
     plan.run = run;
     const { runDir, config } = await ctx(run);
+    if (Array.isArray(plan.pieces) && plan.pieces.some((p) => p && p.agent === 'antigravity') && !agyEnabled(config)) die(AGY_DISABLED_MESSAGE, 2);
     const res = preparePlan({ runDir, plan, run, maxPieces: config.maxPieces });
     if (!res.ok) die(`계획이 바르지 않다:\n- ${res.errors.join('\n- ')}`, 2);
     out(`계획 ${run}: 조각 ${plan.pieces.length}개`);
