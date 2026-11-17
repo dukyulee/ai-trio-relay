@@ -1,0 +1,36 @@
+{
+  "run": "calc-1",
+  "goal": "계산기: 더하기 · 곱하기 · 결과 표시를 계약(src/types.js) 위에서 만든다",
+  "base": "main",
+  "verify": ["node", "--test", "test/*.test.js"],
+  "contract": {
+    "paths": ["src/types.js", "test/types.test.js"]
+  },
+  "pieces": [
+    {
+      "id": "add",
+      "agent": "claude",
+      "goal": "src/add.js에 add(a, b)를 만든다. assertNumber로 입력을 검사한다. test/add.test.js에 시험을 쓴다.",
+      "allowed_paths": ["src/add.js", "test/add.test.js"],
+      "max_files": 2,
+      "max_diff_lines": 120
+    },
+    {
+      "id": "mul",
+      "agent": "codex",
+      "goal": "src/mul.js에 mul(a, b)를 만든다. assertNumber로 입력을 검사한다. test/mul.test.js에 시험을 쓴다.",
+      "allowed_paths": ["src/mul.js", "test/mul.test.js"],
+      "max_files": 2,
+      "max_diff_lines": 120
+    },
+    {
+      "id": "format",
+      "agent": "antigravity",
+      "goal": "src/format.js에 formatSum(a, b) · formatProduct(a, b)를 만든다. add · mul 결과를 PRECISION 자리로 표시한다. test/format.test.js에 시험을 쓴다.",
+      "allowed_paths": ["src/format.js", "test/format.test.js"],
+      "deps": ["add", "mul"],
+      "max_files": 2,
+      "max_diff_lines": 160
+    }
+  ]
+}

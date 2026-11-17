@@ -1,0 +1,11 @@
+{
+  "name": "trio",
+  "version": "0.1.0",
+  "description": "Claude Code 웹 · Codex 웹 · Antigravity 병렬 실행 · 전달함 · 교차 검토 · 병합 줄",
+  "author": {
+    "name": "dukyulee"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/dukyulee/ai-trio-relay",
+  "keywords": ["orchestration", "multi-agent", "codex", "antigravity", "claude-code"]
+}
